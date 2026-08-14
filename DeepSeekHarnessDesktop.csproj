@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <ProjectGuid>{3B6FC76B-9973-46C3-9803-EC1FEC830313}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>DeepSeekHarnessDesktop</RootNamespace>
+    <AssemblyName>DeepSeek Harness</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <ApplicationIcon>assets\whale-blue.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <OutputPath>build\msbuild\</OutputPath>
+    <IntermediateOutputPath>build\obj\</IntermediateOutputPath>
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="Microsoft.Web.WebView2.Core">
+      <HintPath>vendor\WebView2\lib\net462\Microsoft.Web.WebView2.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Microsoft.Web.WebView2.WinForms">
+      <HintPath>vendor\WebView2\lib\net462\Microsoft.Web.WebView2.WinForms.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="src\Launcher.cs" />
+    <EmbeddedResource Include="vendor\WebView2\lib\net462\Microsoft.Web.WebView2.Core.dll">
+      <LogicalName>DeepSeekHarnessDesktop.Resources.Microsoft.Web.WebView2.Core.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="vendor\WebView2\lib\net462\Microsoft.Web.WebView2.WinForms.dll">
+      <LogicalName>DeepSeekHarnessDesktop.Resources.Microsoft.Web.WebView2.WinForms.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="vendor\WebView2\runtimes\win-x64\native\WebView2Loader.dll">
+      <LogicalName>DeepSeekHarnessDesktop.Resources.WebView2Loader.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="scripts\start-dsh-web.cmd">
+      <LogicalName>DeepSeekHarnessDesktop.Resources.start-dsh-web.cmd</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="assets\whale-blue.ico">
+      <LogicalName>DeepSeekHarnessDesktop.Resources.whale-blue.ico</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="assets\whale-white.ico">
+      <LogicalName>DeepSeekHarnessDesktop.Resources.whale-white.ico</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
