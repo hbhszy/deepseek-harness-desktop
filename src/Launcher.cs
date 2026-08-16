@@ -6,6 +6,7 @@ using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -280,6 +281,53 @@ namespace DeepSeekHarnessDesktop
         private static extern int DwmSetWindowAttribute(
             IntPtr hwnd, int attribute, ref int value, int valueSize);
 
+        private async Task<string> FetchHarnessVersionAsync()
+        {
+            try
+            {
+                return await Task.Run<string>(delegate
+                {
+                    ProcessStartInfo info = new ProcessStartInfo();
+                    info.FileName = Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe";
+                    info.Arguments = "/d /s /c \"npx --yes @deepseek-ai/dsh -V\"";
+                    info.WorkingDirectory = GetLaunchDirectory();
+                    info.UseShellExecute = false;
+                    info.CreateNoWindow = true;
+                    info.WindowStyle = ProcessWindowStyle.Hidden;
+                    info.RedirectStandardOutput = true;
+                    info.RedirectStandardError = true;
+
+                    using (Process process = Process.Start(info))
+                    {
+                        if (process == null) return string.Empty;
+                        string stdout = process.StandardOutput.ReadToEnd();
+                        string stderr = process.StandardError.ReadToEnd();
+                        process.WaitForExit();
+
+                        string[] lines = (stdout + "\r\n" + stderr)
+                            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        for (int i = lines.Length - 1; i >= 0; i--)
+                        {
+                            string line = lines[i].Trim();
+                            if (Regex.IsMatch(line, @"^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)*$"))
+                                return line;
+                        }
+                        return string.Empty;
+                    }
+                });
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private void ApplyHarnessVersion(string version)
+        {
+            if (string.IsNullOrWhiteSpace(version) || IsDisposed) return;
+            Text = "DeepSeek Harness " + version;
+        }
+
         private async Task BootAsync(bool restart)
         {
             if (booting || closing) return;
@@ -298,6 +346,8 @@ namespace DeepSeekHarnessDesktop
 
             try
             {
+                Task<string> versionTask = FetchHarnessVersionAsync();
+
                 if (restart && ownsServer)
                 {
                     statusLabel.Text = "正在重启本地服务…";
@@ -307,6 +357,9 @@ namespace DeepSeekHarnessDesktop
 
                 statusLabel.Text = "正在初始化桌面窗口…";
                 await EnsureWebViewAsync();
+
+                string harnessVersion = await versionTask;
+                ApplyHarnessVersion(harnessVersion);
 
                 if (!await ProbeServerAsync())
                 {
