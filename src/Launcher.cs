@@ -120,6 +120,8 @@ namespace DeepSeekHarnessDesktop
         private bool ownsServer;
         private bool booting;
         private bool closing;
+        private TaskCompletionSource<bool> navigationReady;
+        private bool navigationHandlersAttached;
 
         private string DataDirectory
         {
@@ -242,6 +244,7 @@ namespace DeepSeekHarnessDesktop
             {
                 ApplyWindowTheme();
                 ApplyLoadingTheme();
+                ApplyWebViewTheme();
             }));
         }
 
@@ -277,6 +280,15 @@ namespace DeepSeekHarnessDesktop
             statusLabel.ForeColor = dark ? Color.FromArgb(176, 181, 188) : Color.FromArgb(74, 84, 99);
             detailsBox.BackColor = dark ? Color.FromArgb(32, 33, 36) : Color.FromArgb(248, 249, 251);
             detailsBox.ForeColor = dark ? Color.FromArgb(208, 211, 215) : Color.Black;
+        }
+
+        private void ApplyWebViewTheme()
+        {
+            if (webView == null || webView.CoreWebView2 == null) return;
+
+            bool dark = IsSystemDarkMode();
+            webView.DefaultBackgroundColor =
+                dark ? Color.FromArgb(23, 24, 26) : Color.FromArgb(246, 247, 249);
         }
 
         private static bool IsSystemDarkMode()
@@ -399,7 +411,17 @@ namespace DeepSeekHarnessDesktop
                 }
 
                 statusLabel.Text = "正在载入界面…";
+                TaskCompletionSource<bool> navTcs = new TaskCompletionSource<bool>();
+                navigationReady = navTcs;
                 webView.CoreWebView2.Navigate(ServerUrl);
+
+                Task navTask = navTcs.Task;
+                Task done = await Task.WhenAny(navTask, Task.Delay(15000, token));
+                if (done != navTask)
+                {
+                    throw new InvalidOperationException("界面载入超时。");
+                }
+
                 webView.Visible = true;
                 webView.BringToFront();
                 loadingPanel.Visible = false;
@@ -435,6 +457,21 @@ namespace DeepSeekHarnessDesktop
                 e.Handled = true;
                 OpenExternal(e.Uri);
             };
+
+            if (!navigationHandlersAttached)
+            {
+                navigationHandlersAttached = true;
+                webView.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
+            }
+
+            ApplyWebViewTheme();
+        }
+
+        private void OnNavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            TaskCompletionSource<bool> tcs = navigationReady;
+            navigationReady = null;
+            if (tcs != null) tcs.TrySetResult(e.IsSuccess);
         }
 
         private void StartServer()
