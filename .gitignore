@@ -1,7 +1,10 @@
 .vs/
+.DS_Store
 build/
 bin/
 obj/
 *.user
 *.suo
 *.log
+dist/DeepSeek Harness.app/
+dist/DeepSeek Harness-macos-arm64.zip
