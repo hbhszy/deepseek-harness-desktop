@@ -106,6 +106,7 @@ namespace DeepSeekHarnessDesktop
         private readonly WebView2 webView;
         private readonly Panel loadingPanel;
         private readonly Panel loadingCard;
+        private readonly Label loadingTitle;
         private readonly Label statusLabel;
         private readonly ProgressBar progressBar;
         private readonly TextBox detailsBox;
@@ -159,7 +160,7 @@ namespace DeepSeekHarnessDesktop
             loadingCard.BackColor = Color.White;
             loadingCard.Padding = new Padding(36);
 
-            Label loadingTitle = new Label();
+            loadingTitle = new Label();
             loadingTitle.Text = "正在启动 DeepSeek Harness";
             loadingTitle.Font = new Font("Microsoft YaHei UI", 17F, FontStyle.Bold);
             loadingTitle.AutoSize = true;
@@ -225,6 +226,7 @@ namespace DeepSeekHarnessDesktop
             FormClosing += OnFormClosing;
 
             CenterLoadingCard();
+            ApplyLoadingTheme();
         }
 
         private void CenterLoadingCard()
@@ -236,7 +238,11 @@ namespace DeepSeekHarnessDesktop
         private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
         {
             if (closing || !IsHandleCreated) return;
-            BeginInvoke(new Action(ApplyWindowTheme));
+            BeginInvoke(new Action(delegate
+            {
+                ApplyWindowTheme();
+                ApplyLoadingTheme();
+            }));
         }
 
         private void ApplyWindowTheme()
@@ -258,6 +264,19 @@ namespace DeepSeekHarnessDesktop
                 Icon = themeIcon;
                 if (previous != null) previous.Dispose();
             }
+        }
+
+        private void ApplyLoadingTheme()
+        {
+            bool dark = IsSystemDarkMode();
+
+            BackColor = dark ? Color.FromArgb(23, 24, 26) : Color.FromArgb(246, 247, 249);
+            loadingPanel.BackColor = BackColor;
+            loadingCard.BackColor = dark ? Color.FromArgb(43, 45, 49) : Color.White;
+            loadingTitle.ForeColor = dark ? Color.FromArgb(232, 234, 237) : Color.Black;
+            statusLabel.ForeColor = dark ? Color.FromArgb(176, 181, 188) : Color.FromArgb(74, 84, 99);
+            detailsBox.BackColor = dark ? Color.FromArgb(32, 33, 36) : Color.FromArgb(248, 249, 251);
+            detailsBox.ForeColor = dark ? Color.FromArgb(208, 211, 215) : Color.Black;
         }
 
         private static bool IsSystemDarkMode()
