@@ -6,6 +6,6 @@ echo The first launch normally takes 30-90 seconds.
 echo When ready, open http://127.0.0.1:3080
 echo.
 
-call npx --yes @deepseek-ai/dsh web %*
+call pnpm dlx "@deepseek-ai/dsh@next" web --no-open %*
 
 endlocal
