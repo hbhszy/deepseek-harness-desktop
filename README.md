@@ -103,7 +103,7 @@ deepseek-harness-desktop/
 应用启动后先探测 `http://127.0.0.1:3080`：
 
 1. 如果服务已经存在，应用直接连接，并且不会在退出时结束该服务。
-2. 如果服务不存在，应用通过 `npx --yes @deepseek-ai/dsh@latest web --no-open` 运行最新的 Web profile。从 Finder 启动 macOS 应用时，启动目录回退到用户主目录。
+2. 如果服务不存在，应用通过 `npx --yes @deepseek-ai/dsh web --no-open` 运行最新的 Web profile，并复用相同 package spec 的 npx 缓存。从 Finder 启动 macOS 应用时，启动目录回退到用户主目录。
 3. 应用最多等待 180 秒；失败时显示服务输出，供用户检查或重试。
 4. 应用退出时会结束自己启动的完整服务进程树。
 

@@ -6,7 +6,7 @@ import Darwin
 private let serverURL = URL(string: "http://127.0.0.1:3080")!
 private let serverOriginHost = "127.0.0.1"
 private let serverOriginPort = 3080
-private let dshCommand = "npx --yes @deepseek-ai/dsh@latest"
+private let dshCommand = "npx --yes @deepseek-ai/dsh"
 
 private func processExitedNormally(_ status: Int32) -> Bool {
     return (status & 0x7f) == 0
