@@ -6,28 +6,7 @@ import Darwin
 private let serverURL = URL(string: "http://127.0.0.1:3080")!
 private let serverOriginHost = "127.0.0.1"
 private let serverOriginPort = 3080
-private let npmLaunchPrefix = "export NPM_CONFIG_REGISTRY=https://registry.npmjs.org NPM_CONFIG_LEGACY_PEER_DEPS=true; "
-private let dshNpxArguments = [
-    "npx --yes",
-    "--package @deepseek-ai/dsh@0.1.0-rc.8",
-    "--package @deepseek-ai/cordis-plugin-group@1.0.1",
-    "--package @deepseek-ai/dsh-anonymous-user-id@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-atomic-write@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-fs@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-output-retention@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-sandbox@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-scope@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-session-telemetry@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-session-title-llm@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-shell@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-spill@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-subagent-in-process-driver@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-timeout@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-bash-local@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-code-runtime@0.1.0-rc.8",
-    "--package @deepseek-ai/dsh-compaction@0.1.0-rc.8",
-    "dsh"
-].joined(separator: " ")
+private let dshCommand = "npx --yes @deepseek-ai/dsh@latest"
 
 private func processExitedNormally(_ status: Int32) -> Bool {
     return (status & 0x7f) == 0
@@ -522,7 +501,7 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
     private func startServer(generation: Int) throws {
         serverLog.reset()
         let process = ProcessGroup()
-        let arguments = loginShellCommand("\(npmLaunchPrefix)exec \(dshNpxArguments) web --no-open", directory: directory)
+        let arguments = loginShellCommand("exec \(dshCommand) web --no-open", directory: directory)
         try process.start(
             arguments: arguments,
             output: { [weak self] text in self?.serverLog.append(text) },
@@ -574,7 +553,7 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
     }
 
     private func fetchHarnessVersion() {
-        let command = "\(npmLaunchPrefix)\(dshNpxArguments) -V"
+        let command = "\(dshCommand) -V"
         runShell(arguments: loginShellCommand(command, directory: directory)) { [weak self] output, _ in
             let versionPattern = #"^\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)*$"#
             let version = output
