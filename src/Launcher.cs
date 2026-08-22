@@ -320,7 +320,7 @@ namespace DeepSeekHarnessDesktop
                 {
                     ProcessStartInfo info = new ProcessStartInfo();
                     info.FileName = Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe";
-                    info.Arguments = "/d /s /c \"pnpm dlx @deepseek-ai/dsh@next -V\"";
+                    info.Arguments = "/d /s /c \"pnpm dlx @deepseek-ai/dsh -V\"";
                     info.WorkingDirectory = GetLaunchDirectory();
                     info.UseShellExecute = false;
                     info.CreateNoWindow = true;
