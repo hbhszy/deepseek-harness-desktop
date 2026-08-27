@@ -124,7 +124,10 @@ private final class ProcessGroup {
         posix_spawnattr_setpgroup(&attributes, 0)
         posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETPGROUP))
 
-        let environment = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        var spawnEnvironment = ProcessInfo.processInfo.environment
+        spawnEnvironment["NO_COLOR"] = "1"
+        spawnEnvironment["FORCE_COLOR"] = "0"
+        let environment = spawnEnvironment.map { "\($0.key)=\($0.value)" }
         var pid: pid_t = 0
         let result = withMutableCStringArray(arguments) { argv in
             withMutableCStringArray(environment) { envp in
@@ -672,6 +675,10 @@ private func runShell(arguments: [String], completion: @escaping (String, Int32)
         process.arguments = Array(arguments.dropFirst())
         process.standardOutput = outputPipe
         process.standardError = outputPipe
+        var environment = ProcessInfo.processInfo.environment
+        environment["NO_COLOR"] = "1"
+        environment["FORCE_COLOR"] = "0"
+        process.environment = environment
         do {
             try process.run()
             let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
