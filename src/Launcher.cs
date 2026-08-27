@@ -18,8 +18,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: System.Reflection.AssemblyDescription("Desktop application for DeepSeek Harness")]
 [assembly: System.Reflection.AssemblyCompany("DeepSeek Harness Desktop")]
 [assembly: System.Reflection.AssemblyProduct("DeepSeek Harness Desktop")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.0.1.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.0.1.0")]
 
 namespace DeepSeekHarnessDesktop
 {
@@ -51,7 +51,7 @@ namespace DeepSeekHarnessDesktop
 
             runtimeDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "DeepSeekHarnessDesktop", "Runtime", "1.0.0");
+                "DeepSeekHarnessDesktop", "Runtime", "1.0.1");
             Directory.CreateDirectory(runtimeDirectory);
 
             string loaderPath = ExtractResource("WebView2Loader.dll", "WebView2Loader.dll");
