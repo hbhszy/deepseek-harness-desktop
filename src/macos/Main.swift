@@ -6,7 +6,7 @@ import Darwin
 private let serverURL = URL(string: "http://127.0.0.1:3080")!
 private let serverOriginHost = "127.0.0.1"
 private let serverOriginPort = 3080
-private let dshCommand = "npx --yes @deepseek-ai/dsh"
+private let dshCommand = "pnpm dlx --reporter append-only --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=@google/genai --allow-build=koffi --allow-build=node-pty --allow-build=protobufjs @deepseek-ai/dsh"
 
 private func processExitedNormally(_ status: Int32) -> Bool {
     return (status & 0x7f) == 0
@@ -434,8 +434,8 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
         let generation = bootGeneration
 
         retryButton.isHidden = true
-        detailsScrollView.isHidden = true
-        detailsTextView.string = ""
+        detailsScrollView.isHidden = false
+        detailsTextView.string = "正在检查启动环境…\n"
         progressIndicator.isHidden = false
         progressIndicator.startAnimation(nil)
         webView.isHidden = true
@@ -484,7 +484,7 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
     }
 
     private func preflightNode(completion: @escaping (String?) -> Void) {
-        let command = "command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && command -v npx >/dev/null 2>&1"
+        let command = "command -v node >/dev/null 2>&1 && command -v pnpm >/dev/null 2>&1"
         runShell(arguments: loginShellCommand(command, directory: directory)) { output, code in
             DispatchQueue.main.async {
                 if code == 0 {
@@ -492,7 +492,7 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
                 } else {
                     let suffix = output.trimmingCharacters(in: .whitespacesAndNewlines)
                     let detail = suffix.isEmpty ? "" : "\n\n\(suffix)"
-                    completion("未找到 Node.js、npm 或 npx。请先安装 Node.js，并确认在终端中可以运行 node、npm 和 npx。\(detail)")
+                    completion("未找到 Node.js 或 pnpm。请先安装 Node.js 和 pnpm，并确认在终端中可以运行 node 和 pnpm。\(detail)")
                 }
             }
         }
@@ -500,11 +500,18 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
 
     private func startServer(generation: Int) throws {
         serverLog.reset()
+        detailsTextView.string = "$ pnpm dlx @deepseek-ai/dsh web --no-open\n"
         let process = ProcessGroup()
         let arguments = loginShellCommand("exec \(dshCommand) web --no-open", directory: directory)
         try process.start(
             arguments: arguments,
-            output: { [weak self] text in self?.serverLog.append(text) },
+            output: { [weak self] text in
+                self?.serverLog.append(text)
+                DispatchQueue.main.async {
+                    guard let self = self, self.isCurrent(generation), self.booting else { return }
+                    self.appendVisibleLog(text)
+                }
+            },
             termination: { [weak self, weak process] code in
                 guard let self = self, let process = process else { return }
                 guard self.isCurrent(generation), self.booting, self.ownedServer === process else { return }
@@ -515,6 +522,15 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
             }
         )
         ownedServer = process
+    }
+
+    private func appendVisibleLog(_ text: String) {
+        var visibleText = detailsTextView.string + text
+        if visibleText.count > 18_000 {
+            visibleText = String(visibleText.suffix(14_000))
+        }
+        detailsTextView.string = visibleText
+        detailsTextView.scrollToEndOfDocument(nil)
     }
 
     private func waitForServer(generation: Int, elapsed: Int) {

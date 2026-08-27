@@ -9,16 +9,16 @@ DeepSeek Harness 的原生桌面外壳。应用会在后台启动本地 `dsh web
 - 支持 Windows 10/11 x64 和 Apple Silicon Mac
 - 使用 Harness 自带的工作区选择，不额外指定默认工作目录
 - 自动跟随系统浅色/深色外观
-- macOS 版通过用户环境中的 `npx` 自动运行最新的 `@deepseek-ai/dsh`
+- 通过用户环境中的 `pnpm dlx` 自动运行最新的 `@deepseek-ai/dsh`
 - 自动连接已经运行在 `127.0.0.1:3080` 的服务
 - 关闭应用时，只结束由本应用启动的本地服务进程树
-- 启动失败时显示服务日志并支持重试
+- 启动过程中实时显示服务日志，失败后保留日志并支持重试
 
 ## 环境要求
 
 两个平台都需要：
 
-- Node.js、npm 和 npx
+- Node.js 和 pnpm
 - 可访问 npm 软件源，以便首次运行时获取 `@deepseek-ai/dsh`
 
 Windows 版另外需要：
@@ -37,8 +37,7 @@ macOS 应用通过 login/interactive zsh 读取用户环境，因此兼容 Homeb
 
 ```bash
 node --version
-npm --version
-npx --version
+pnpm --version
 ```
 
 ## Windows 构建
@@ -103,7 +102,7 @@ deepseek-harness-desktop/
 应用启动后先探测 `http://127.0.0.1:3080`：
 
 1. 如果服务已经存在，应用直接连接，并且不会在退出时结束该服务。
-2. 如果服务不存在，应用通过 `npx --yes @deepseek-ai/dsh web --no-open` 运行最新的 Web profile，并复用相同 package spec 的 npx 缓存。从 Finder 启动 macOS 应用时，启动目录回退到用户主目录。
+2. 如果服务不存在，应用通过带有显式构建许可的 `pnpm dlx @deepseek-ai/dsh web --no-open` 运行最新的 Web profile，避免 pnpm 在隐藏终端中等待人工审批依赖构建脚本。从 Finder 启动 macOS 应用时，启动目录回退到用户主目录。
 3. 应用最多等待 180 秒；失败时显示服务输出，供用户检查或重试。
 4. 应用退出时会结束自己启动的完整服务进程树。
 

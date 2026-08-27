@@ -103,6 +103,14 @@ namespace DeepSeekHarnessDesktop
     internal sealed class MainForm : Form
     {
         private const string ServerUrl = "http://127.0.0.1:3080";
+        private const string DshDlxCommand =
+            "pnpm dlx --reporter append-only " +
+            "--allow-build=@deepseek-ai/dsh-subprocess-local " +
+            "--allow-build=@google/genai " +
+            "--allow-build=koffi " +
+            "--allow-build=node-pty " +
+            "--allow-build=protobufjs " +
+            "@deepseek-ai/dsh";
         private readonly WebView2 webView;
         private readonly Panel loadingPanel;
         private readonly Panel loadingCard;
@@ -158,7 +166,7 @@ namespace DeepSeekHarnessDesktop
             loadingPanel.BackColor = Color.FromArgb(246, 247, 249);
 
             loadingCard = new Panel();
-            loadingCard.Size = new Size(580, 330);
+            loadingCard.Size = new Size(680, 430);
             loadingCard.BackColor = Color.White;
             loadingCard.Padding = new Padding(36);
 
@@ -173,13 +181,13 @@ namespace DeepSeekHarnessDesktop
             statusLabel.ForeColor = Color.FromArgb(74, 84, 99);
             statusLabel.AutoEllipsis = true;
             statusLabel.Location = new Point(38, 84);
-            statusLabel.Size = new Size(500, 28);
+            statusLabel.Size = new Size(600, 28);
 
             progressBar = new ProgressBar();
             progressBar.Style = ProgressBarStyle.Marquee;
             progressBar.MarqueeAnimationSpeed = 22;
             progressBar.Location = new Point(38, 126);
-            progressBar.Size = new Size(500, 6);
+            progressBar.Size = new Size(600, 6);
 
             detailsBox = new TextBox();
             detailsBox.Multiline = true;
@@ -189,13 +197,13 @@ namespace DeepSeekHarnessDesktop
             detailsBox.BorderStyle = BorderStyle.FixedSingle;
             detailsBox.Font = new Font("Consolas", 8.5F);
             detailsBox.Location = new Point(38, 156);
-            detailsBox.Size = new Size(500, 96);
-            detailsBox.Visible = false;
+            detailsBox.Size = new Size(600, 190);
+            detailsBox.Visible = true;
 
             retryButton = new Button();
             retryButton.Text = "重试";
             retryButton.Size = new Size(92, 34);
-            retryButton.Location = new Point(38, 286);
+            retryButton.Location = new Point(38, 366);
             retryButton.FlatStyle = FlatStyle.Flat;
             retryButton.BackColor = Color.FromArgb(38, 99, 235);
             retryButton.ForeColor = Color.White;
@@ -320,7 +328,7 @@ namespace DeepSeekHarnessDesktop
                 {
                     ProcessStartInfo info = new ProcessStartInfo();
                     info.FileName = Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe";
-                    info.Arguments = "/d /s /c \"pnpm dlx @deepseek-ai/dsh -V\"";
+                    info.Arguments = "/d /s /c \"" + DshDlxCommand + " -V\"";
                     info.WorkingDirectory = GetLaunchDirectory();
                     info.UseShellExecute = false;
                     info.CreateNoWindow = true;
@@ -359,13 +367,19 @@ namespace DeepSeekHarnessDesktop
             Text = "DeepSeek Harness " + version;
         }
 
+        private async void UpdateHarnessVersionAsync()
+        {
+            string version = await FetchHarnessVersionAsync();
+            ApplyHarnessVersion(version);
+        }
+
         private async Task BootAsync(bool restart)
         {
             if (booting || closing) return;
             booting = true;
             retryButton.Visible = false;
-            detailsBox.Visible = false;
-            detailsBox.Text = string.Empty;
+            detailsBox.Visible = true;
+            detailsBox.Text = "正在检查启动环境…" + Environment.NewLine;
             progressBar.Visible = true;
             progressBar.Style = ProgressBarStyle.Marquee;
             webView.Visible = false;
@@ -377,8 +391,6 @@ namespace DeepSeekHarnessDesktop
 
             try
             {
-                Task<string> versionTask = FetchHarnessVersionAsync();
-
                 if (restart && ownsServer)
                 {
                     statusLabel.Text = "正在重启本地服务…";
@@ -388,9 +400,6 @@ namespace DeepSeekHarnessDesktop
 
                 statusLabel.Text = "正在初始化桌面窗口…";
                 await EnsureWebViewAsync();
-
-                string harnessVersion = await versionTask;
-                ApplyHarnessVersion(harnessVersion);
 
                 if (!await ProbeServerAsync())
                 {
@@ -425,6 +434,7 @@ namespace DeepSeekHarnessDesktop
                 webView.Visible = true;
                 webView.BringToFront();
                 loadingPanel.Visible = false;
+                UpdateHarnessVersionAsync();
             }
             catch (OperationCanceledException)
             {
@@ -514,6 +524,30 @@ namespace DeepSeekHarnessDesktop
                 if (serverLog.Length > 24000)
                     serverLog.Remove(0, serverLog.Length - 18000);
             }
+
+            try
+            {
+                if (IsHandleCreated && !IsDisposed)
+                    BeginInvoke(new Action<string>(AppendVisibleLog), e.Data);
+            }
+            catch
+            {
+            }
+        }
+
+        private void AppendVisibleLog(string text)
+        {
+            if (closing || IsDisposed || !booting) return;
+
+            string line = text + Environment.NewLine;
+            if (detailsBox.TextLength + line.Length > 18000)
+            {
+                int keepFrom = Math.Max(0, detailsBox.TextLength - 14000);
+                detailsBox.Text = detailsBox.Text.Substring(keepFrom);
+            }
+            detailsBox.AppendText(line);
+            detailsBox.SelectionStart = detailsBox.TextLength;
+            detailsBox.ScrollToCaret();
         }
 
         private async Task<bool> WaitForServerAsync(CancellationToken token)
