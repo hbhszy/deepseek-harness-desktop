@@ -6,5 +6,4 @@ obj/
 *.user
 *.suo
 *.log
-dist/DeepSeek Harness.app/
-dist/DeepSeek Harness-macos-arm64.zip
+dist/
