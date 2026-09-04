@@ -8,6 +8,18 @@ private let serverOriginHost = "127.0.0.1"
 private let serverOriginPort = 3080
 private let dshCommand = "pnpm dlx --reporter append-only --allow-build=@deepseek-ai/dsh-subprocess-local --allow-build=@google/genai --allow-build=koffi --allow-build=node-pty --allow-build=protobufjs @deepseek-ai/dsh"
 
+private func dshWebURL(in text: String) -> URL? {
+    let pattern = #"(?m)^dsh web:\s+(https?://\S+)"#
+    guard let range = text.range(of: pattern, options: .regularExpression) else { return nil }
+    let line = String(text[range])
+    guard let separator = line.range(of: "dsh web:") else { return nil }
+    let value = line[separator.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let url = URL(string: value),
+          url.host == serverOriginHost,
+          url.port == serverOriginPort else { return nil }
+    return url
+}
+
 private func processExitedNormally(_ status: Int32) -> Bool {
     return (status & 0x7f) == 0
 }
@@ -264,6 +276,7 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
     private let directory = launchDirectory()
 
     private var ownedServer: ProcessGroup?
+    private var serverAccessURL: URL?
     private var bootGeneration = 0
     private var booting = false
     private var closing = false
@@ -503,15 +516,21 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
 
     private func startServer(generation: Int) throws {
         serverLog.reset()
+        serverAccessURL = nil
         detailsTextView.string = "$ pnpm dlx @deepseek-ai/dsh web --no-open\n"
         let process = ProcessGroup()
         let arguments = loginShellCommand("exec \(dshCommand) web --no-open", directory: directory)
         try process.start(
             arguments: arguments,
             output: { [weak self] text in
-                self?.serverLog.append(text)
+                guard let self = self else { return }
+                self.serverLog.append(text)
+                let accessURL = dshWebURL(in: self.serverLog.tail(maximum: 24_000))
                 DispatchQueue.main.async {
-                    guard let self = self, self.isCurrent(generation), self.booting else { return }
+                    guard self.isCurrent(generation), self.booting else { return }
+                    if self.serverAccessURL == nil {
+                        self.serverAccessURL = accessURL
+                    }
                     self.appendVisibleLog(text)
                 }
             },
@@ -547,7 +566,7 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
 
         probeServer { [weak self] ready in
             guard let self = self, self.isCurrent(generation), self.booting else { return }
-            if ready {
+            if ready, self.ownedServer == nil || self.serverAccessURL != nil {
                 self.finishBoot(generation: generation)
                 return
             }
@@ -564,7 +583,7 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
     private func finishBoot(generation: Int) {
         guard isCurrent(generation) else { return }
         statusLabel.stringValue = "正在载入界面…"
-        webView.load(URLRequest(url: serverURL))
+        webView.load(URLRequest(url: serverAccessURL ?? serverURL))
         webView.isHidden = false
         loadingView.isHidden = true
         booting = false
@@ -615,6 +634,7 @@ private final class MainWindowController: NSWindowController, NSWindowDelegate, 
     private func stopOwnedServer(waitUntilExit: Bool) {
         ownedServer?.stop(waitUntilExit: waitUntilExit)
         ownedServer = nil
+        serverAccessURL = nil
     }
 
     func stop() {

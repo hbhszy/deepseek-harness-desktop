@@ -18,8 +18,8 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: System.Reflection.AssemblyDescription("Desktop application for DeepSeek Harness")]
 [assembly: System.Reflection.AssemblyCompany("DeepSeek Harness Desktop")]
 [assembly: System.Reflection.AssemblyProduct("DeepSeek Harness Desktop")]
-[assembly: System.Reflection.AssemblyVersion("1.0.2.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.0.2.0")]
+[assembly: System.Reflection.AssemblyVersion("1.0.3.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.0.3.0")]
 
 namespace DeepSeekHarnessDesktop
 {
@@ -51,7 +51,7 @@ namespace DeepSeekHarnessDesktop
 
             runtimeDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "DeepSeekHarnessDesktop", "Runtime", "1.0.2");
+                "DeepSeekHarnessDesktop", "Runtime", "1.0.3");
             Directory.CreateDirectory(runtimeDirectory);
 
             string loaderPath = ExtractResource("WebView2Loader.dll", "WebView2Loader.dll");
@@ -123,6 +123,7 @@ namespace DeepSeekHarnessDesktop
         private readonly object logLock = new object();
 
         private Process serverProcess;
+        private string serverAccessUrl;
         private Icon themeIcon;
         private CancellationTokenSource startupCancellation;
         private bool ownsServer;
@@ -422,7 +423,7 @@ namespace DeepSeekHarnessDesktop
                 statusLabel.Text = "正在载入界面…";
                 TaskCompletionSource<bool> navTcs = new TaskCompletionSource<bool>();
                 navigationReady = navTcs;
-                webView.CoreWebView2.Navigate(ServerUrl);
+                webView.CoreWebView2.Navigate(GetServerNavigationUrl());
 
                 Task navTask = navTcs.Task;
                 Task done = await Task.WhenAny(navTask, Task.Delay(15000, token));
@@ -465,6 +466,13 @@ namespace DeepSeekHarnessDesktop
             webView.CoreWebView2.NewWindowRequested += delegate(object sender, CoreWebView2NewWindowRequestedEventArgs e)
             {
                 e.Handled = true;
+                if (string.Equals(e.Uri, ServerUrl, StringComparison.OrdinalIgnoreCase) ||
+                    e.Uri.StartsWith(ServerUrl + "/", StringComparison.OrdinalIgnoreCase) ||
+                    e.Uri.StartsWith(ServerUrl + "?", StringComparison.OrdinalIgnoreCase))
+                {
+                    webView.CoreWebView2.Navigate(e.Uri);
+                    return;
+                }
                 OpenExternal(e.Uri);
             };
 
@@ -492,7 +500,11 @@ namespace DeepSeekHarnessDesktop
                 throw new FileNotFoundException("找不到 DSH 启动脚本。", script);
             }
 
-            lock (logLock) serverLog.Length = 0;
+            lock (logLock)
+            {
+                serverLog.Length = 0;
+                serverAccessUrl = null;
+            }
 
             ProcessStartInfo info = new ProcessStartInfo();
             info.FileName = Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe";
@@ -523,6 +535,8 @@ namespace DeepSeekHarnessDesktop
                 serverLog.AppendLine(e.Data);
                 if (serverLog.Length > 24000)
                     serverLog.Remove(0, serverLog.Length - 18000);
+                if (serverAccessUrl == null)
+                    serverAccessUrl = ExtractServerAccessUrl(e.Data);
             }
 
             try
@@ -556,7 +570,7 @@ namespace DeepSeekHarnessDesktop
             {
                 token.ThrowIfCancellationRequested();
 
-                if (await ProbeServerAsync()) return true;
+                if (await ProbeServerAsync() && (!ownsServer || HasServerAccessUrl())) return true;
 
                 if (serverProcess != null && serverProcess.HasExited)
                 {
@@ -590,11 +604,47 @@ namespace DeepSeekHarnessDesktop
                         return code >= 200 && code < 500;
                     }
                 }
+                catch (WebException ex)
+                {
+                    using (HttpWebResponse response = ex.Response as HttpWebResponse)
+                    {
+                        if (response == null) return false;
+                        int code = (int)response.StatusCode;
+                        return code >= 200 && code < 500;
+                    }
+                }
                 catch
                 {
                     return false;
                 }
             });
+        }
+
+        private static string ExtractServerAccessUrl(string line)
+        {
+            Match match = Regex.Match(
+                line,
+                @"^dsh web:\s+(https?://\S+)",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (!match.Success) return null;
+
+            Uri url;
+            if (!Uri.TryCreate(match.Groups[1].Value, UriKind.Absolute, out url)) return null;
+            if (!url.IsLoopback || url.Port != 3080) return null;
+            return url.AbsoluteUri;
+        }
+
+        private bool HasServerAccessUrl()
+        {
+            lock (logLock) return !string.IsNullOrEmpty(serverAccessUrl);
+        }
+
+        private string GetServerNavigationUrl()
+        {
+            lock (logLock)
+            {
+                return string.IsNullOrEmpty(serverAccessUrl) ? ServerUrl : serverAccessUrl;
+            }
         }
 
         private string GetLaunchDirectory()
@@ -666,6 +716,7 @@ namespace DeepSeekHarnessDesktop
                 try { serverProcess.Dispose(); } catch { }
                 serverProcess = null;
                 ownsServer = false;
+                lock (logLock) serverAccessUrl = null;
             }
         }
 
